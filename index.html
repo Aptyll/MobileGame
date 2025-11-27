@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Nonstop Knight</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1a1a1a">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        body {
+            background: #1a1a1a;
+            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            overflow: hidden;
+            touch-action: none;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100dvh; /* Use dynamic viewport height for mobile */
+            margin: 0;
+            padding: 20px;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Mobile Viewport Container */
+        #mobileViewport {
+            position: relative;
+            background: #0a0a0a;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 20px;
+            box-shadow: 0 0 40px rgba(0, 0, 0, 0.8), 0 0 0 8px rgba(255, 255, 255, 0.05);
+            overflow: hidden;
+            /* Default to iPhone 12/13 size (390x844) */
+            width: min(390px, calc(100vw - 40px));
+            height: min(844px, calc(100vh - 40px));
+            /* Maintain mobile aspect ratio while scaling */
+            aspect-ratio: 390 / 844;
+            /* Center and scale appropriately */
+            max-width: 100%;
+            max-height: 100%;
+        }
+        
+        /* Scale down on smaller desktop screens */
+        @media (max-height: 900px) {
+            #mobileViewport {
+                height: calc(100vh - 40px);
+                width: auto;
+            }
+        }
+
+        /* On actual mobile devices, use full screen */
+        @media (max-width: 768px) {
+            html, body {
+                margin: 0;
+                padding: 0;
+                width: 100%;
+                height: 100%;
+                height: 100dvh; /* Use dynamic viewport height */
+                overflow: hidden;
+                position: fixed;
+                /* Account for safe areas on devices with notches */
+                padding-top: env(safe-area-inset-top);
+                padding-bottom: env(safe-area-inset-bottom);
+                padding-left: env(safe-area-inset-left);
+                padding-right: env(safe-area-inset-right);
+            }
+            
+            body {
+                padding: 0;
+                padding-top: env(safe-area-inset-top);
+                padding-bottom: env(safe-area-inset-bottom);
+                padding-left: env(safe-area-inset-left);
+                padding-right: env(safe-area-inset-right);
+            }
+            
+            #mobileViewport {
+                position: fixed;
+                top: env(safe-area-inset-top, 0);
+                left: env(safe-area-inset-left, 0);
+                right: env(safe-area-inset-right, 0);
+                bottom: env(safe-area-inset-bottom, 0);
+                width: calc(100vw - env(safe-area-inset-left, 0) - env(safe-area-inset-right, 0));
+                /* Height will be set dynamically via JavaScript */
+                height: 100%;
+                border-radius: 0;
+                border: 2px solid #FFFFFF;
+                box-shadow: none;
+                max-width: 100%;
+                max-height: 100%;
+                aspect-ratio: unset; /* Remove aspect ratio constraint on mobile */
+            }
+        }
+
+        #gameCanvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            background: #0a0a0a;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            image-rendering: -moz-crisp-edges;
+        }
+
+        #ui {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        #ui > * {
+            pointer-events: auto;
+        }
+
+        .hud {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 8px 10px;
+        }
+
+        .hud-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 0;
+        }
+
+        .hud-stats {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .stat-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+        }
+
+        .xp-bar-container {
+            width: 100px;
+            height: 32px;
+            background: rgba(20, 20, 20, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            margin-top: 0;
+            border-radius: 6px;
+            overflow: hidden;
+            position: relative;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+        }
+
+        .xp-bar {
+            height: 100%;
+            background: rgba(255, 255, 255, 0.3);
+            transition: width 0.3s ease;
+        }
+
+        .xp-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 14px;
+            color: rgba(255, 255, 255, 1);
+            font-weight: 600;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9), 0 0 2px rgba(0, 0, 0, 0.9);
+            pointer-events: none;
+            white-space: nowrap;
+        }
+
+        .spell-buttons {
+            display: flex;
+            gap: 12px;
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 15px;
+            justify-content: center;
+            align-items: flex-end;
+        }
+
+        .spell-button {
+            width: 76px;
+            height: 76px;
+            border: 2px solid rgba(255, 255, 255, 0.8);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            font-size: 12px;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            border-radius: 8px;
+            touch-action: manipulation;
+            transition: all 0.15s ease;
+        }
+
+        .spell-button .spell-key {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 2px;
+            color: white;
+        }
+
+        .spell-button .spell-name {
+            font-size: 9px;
+            opacity: 0.7;
+            color: white;
+        }
+
+        #spellDamage {
+            border-width: 2px;
+        }
+
+        #spellHeal {
+            border-width: 2px;
+        }
+
+        #spellPlaceholder {
+            border-width: 2px;
+        }
+
+        .shop-button-bottom {
+            width: 76px;
+            height: 76px;
+            border: 2px solid rgba(255, 255, 255, 0.8);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            touch-action: manipulation;
+            transition: all 0.15s ease;
+        }
+
+        .shop-button-bottom:active {
+            background: rgba(255, 255, 255, 0.9);
+            border-color: rgba(255, 255, 255, 1);
+        }
+
+        .shop-button-bottom:active .shop-icon {
+            filter: invert(1);
+        }
+
+        .shop-button-bottom .shop-icon {
+            font-size: 22px;
+            margin-bottom: 2px;
+            transition: filter 0.15s ease;
+        }
+
+        .shop-button-bottom .shop-label {
+            font-size: 9px;
+            opacity: 0.9;
+        }
+
+        .spell-button.cooldown {
+            opacity: 0.5;
+            filter: grayscale(100%);
+        }
+
+        .spell-button .cooldown-ring {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        
+        .spell-button .cooldown-ring circle {
+            transition: stroke-dashoffset 0.1s linear;
+        }
+        
+        .spell-button .charge-indicator {
+            position: absolute;
+            bottom: 100%;
+            left: 0;
+            right: 0;
+            margin-bottom: 6px;
+            height: 6px;
+            display: flex;
+            gap: 3px;
+            pointer-events: none;
+        }
+        
+        .spell-button .charge-bar {
+            height: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 2px;
+            transition: width 0.2s ease;
+            box-shadow: 0 0 3px rgba(255, 255, 255, 0.6);
+        }
+        
+        .spell-button .charge-segment {
+            flex: 1;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 2px;
+            box-shadow: 0 0 2px rgba(255, 255, 255, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        .spell-button .charge-segment.empty {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.1);
+            box-shadow: none;
+        }
+
+
+        .gold-display {
+            position: absolute;
+            top: 8px;
+            right: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            background: rgba(20, 20, 20, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            padding: 0;
+            font-size: 14px;
+            font-weight: 600;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+            width: 100px;
+            height: 32px;
+        }
+        
+        .gold-display span:first-child {
+            filter: grayscale(100%) brightness(120%);
+        }
+        
+        .gold-display span:last-child {
+            color: #FFFFFF;
+        }
+
+        .stage-progression {
+            position: absolute;
+            top: 8px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            background: rgba(20, 20, 20, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            padding: 4px 8px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+            height: 32px;
+        }
+
+        .stage-item {
+            min-width: 36px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 3px;
+            font-size: 12px;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.6);
+            transition: all 0.2s ease;
+            padding: 0 8px;
+        }
+
+        .stage-item.prev {
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 10px;
+        }
+
+        .stage-item.current {
+            background: rgba(255, 255, 255, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: rgba(255, 255, 255, 1);
+            font-size: 12px;
+            font-weight: 700;
+            box-shadow: none;
+        }
+
+        .stage-item.next {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 11px;
+        }
+
+        .stage-separator {
+            width: 1px;
+            height: 20px;
+            background: rgba(255, 255, 255, 0.15);
+            margin: 0 2px;
+        }
+
+        .shop-panel {
+            position: absolute;
+            top: auto;
+            bottom: -50%;
+            right: 0;
+            left: 0;
+            width: 100%;
+            height: 50%;
+            background: rgba(20, 20, 20, 0.95);
+            border-top: 2px solid rgba(255, 255, 255, 0.3);
+            transition: bottom 0.3s ease;
+            overflow-y: auto;
+            z-index: 2000;
+        }
+
+        .shop-panel.open {
+            bottom: 0;
+        }
+
+        .shop-content {
+            padding: 20px;
+        }
+
+        .shop-section {
+            margin-bottom: 30px;
+        }
+
+        .shop-section h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            padding-bottom: 10px;
+        }
+
+        .upgrade-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            margin-bottom: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+
+        .upgrade-info {
+            flex: 1;
+        }
+
+        .upgrade-name {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .upgrade-stats {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .upgrade-button {
+            padding: 8px 15px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid rgba(255, 255, 255, 0.8);
+            color: white;
+            cursor: pointer;
+            border-radius: 4px;
+            touch-action: manipulation;
+            transition: all 0.15s ease;
+            font-weight: 600;
+        }
+
+        .upgrade-button:active {
+            background: rgba(255, 255, 255, 0.9);
+            border-color: rgba(255, 255, 255, 1);
+            color: rgba(0, 0, 0, 0.9);
+        }
+
+        .upgrade-button:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        .close-button {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 30px;
+            height: 30px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+        }
+
+        .inventory-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .gear-slot {
+            aspect-ratio: 1;
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            padding: 10px;
+            touch-action: manipulation;
+        }
+
+        .gear-slot:active {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .gear-name {
+            font-size: 12px;
+            margin-bottom: 5px;
+            text-align: center;
+        }
+
+        .gear-level {
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .gear-inspect {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(20, 20, 20, 0.98);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            padding: 20px;
+            border-radius: 8px;
+            max-width: 400px;
+            z-index: 3000;
+            display: none;
+        }
+
+        .gear-inspect.show {
+            display: block;
+        }
+
+        .gear-inspect h3 {
+            margin-bottom: 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            padding-bottom: 10px;
+        }
+
+        .gear-stat-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Viewport size indicator (for development) */
+        .viewport-info {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            color: rgba(255, 255, 255, 0.6);
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-family: monospace;
+            z-index: 10000;
+            pointer-events: none;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        /* Reset Game Button (Desktop only, outside viewport) */
+        .reset-game-button {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            background: rgba(200, 50, 50, 0.9);
+            border: 2px solid rgba(255, 255, 255, 0.8);
+            color: white;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: 6px;
+            z-index: 10001;
+            transition: all 0.2s ease;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        }
+        
+        .reset-game-button:hover {
+            background: rgba(220, 70, 70, 1);
+            border-color: rgba(255, 255, 255, 1);
+            transform: scale(1.05);
+        }
+        
+        .reset-game-button:active {
+            background: rgba(180, 40, 40, 1);
+            transform: scale(0.98);
+        }
+        
+        /* Dev Tools Buttons Container */
+        .dev-tools {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 10001;
+        }
+        
+        .dev-button {
+            padding: 10px 20px;
+            background: rgba(50, 150, 200, 0.9);
+            border: 2px solid rgba(255, 255, 255, 0.8);
+            color: white;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            white-space: nowrap;
+        }
+        
+        .dev-button:hover {
+            background: rgba(70, 170, 220, 1);
+            border-color: rgba(255, 255, 255, 1);
+            transform: scale(1.05);
+        }
+        
+        .dev-button:active {
+            background: rgba(40, 130, 180, 1);
+            transform: scale(0.98);
+        }
+        
+        .dev-button.reset {
+            background: rgba(200, 50, 50, 0.9);
+        }
+        
+        .dev-button.reset:hover {
+            background: rgba(220, 70, 70, 1);
+        }
+        
+        .dev-button.reset:active {
+            background: rgba(180, 40, 40, 1);
+        }
+        
+        /* Hide dev tools on mobile */
+        @media (max-width: 768px) {
+            .dev-tools {
+                display: none;
+            }
+        }
+
+            @media (max-width: 768px) {
+            body {
+                padding: 0;
+            }
+            
+            #mobileViewport {
+                width: 100vw;
+                height: 100vh;
+                border-radius: 0;
+                border: none;
+                box-shadow: none;
+                max-width: 100vw;
+                max-height: 100vh;
+            }
+
+            .spell-button {
+                width: 76px;
+                height: 76px;
+            }
+
+            .shop-button-bottom {
+                width: 76px;
+                height: 76px;
+            }
+
+            .viewport-info {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="dev-tools">
+        <button class="dev-button reset" id="resetGameButton">Reset Game</button>
+        <button class="dev-button" id="addGoldButton">Add Gold</button>
+        <button class="dev-button" id="addLevelsButton">Add Levels</button>
+        <button class="dev-button" id="setStageButton">Set Stage</button>
+    </div>
+    <div class="viewport-info" id="viewportInfo">390 × 844</div>
+    <div id="mobileViewport">
+        <canvas id="gameCanvas"></canvas>
+        <div id="ui">
+        <div class="stage-progression" id="stageProgression"></div>
+        <div class="hud">
+            <div class="hud-top">
+                <div class="hud-stats">
+                    <div class="xp-bar-container">
+                        <div class="xp-bar" id="xpBar"></div>
+                        <div class="xp-text" id="xpText">1</div>
+                    </div>
+                </div>
+                <div class="gold-display">
+                    <span>💰</span>
+                    <span id="gold">0</span>
+                </div>
+            </div>
+        </div>
+        <div class="spell-buttons">
+            <div class="spell-button" id="spellDamage">
+                <div class="spell-key">Q</div>
+            </div>
+            <div class="spell-button" id="spellHeal">
+                <div class="spell-key">W</div>
+            </div>
+            <div class="spell-button" id="spellPlaceholder">
+                <div class="spell-key">E</div>
+            </div>
+            <div class="shop-button-bottom" id="shopButtonBottom">
+                <div class="shop-icon">🛒</div>
+            </div>
+        </div>
+        <div class="shop-panel" id="shopPanel">
+            <div class="close-button" id="closeShop">×</div>
+            <div class="shop-content">
+                <div class="shop-section">
+                    <h2>Gear Upgrades</h2>
+                    <div id="gearUpgrades"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="shop-panel" id="inventoryPanel">
+            <div class="close-button" id="closeInventory">×</div>
+            <div class="shop-content">
+                <h2>Inventory</h2>
+                <div class="inventory-grid" id="inventoryGrid"></div>
+            </div>
+        </div>
+
+        <div class="gear-inspect" id="gearInspect">
+            <h3 id="inspectName"></h3>
+            <div id="inspectStats"></div>
+            <button class="upgrade-button" id="inspectUpgrade" style="margin-top: 15px; width: 100%;">Upgrade</button>
+        </div>
+        </div>
+    </div>
+
+    <script src="game.js"></script>
+    <script>
+        // Register service worker for PWA functionality
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then((registration) => {
+                        console.log('Service Worker registered:', registration);
+                    })
+                    .catch((error) => {
+                        console.log('Service Worker registration failed:', error);
+                    });
+            });
+        }
+    </script>
+</body>
+</html>
+

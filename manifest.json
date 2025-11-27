@@ -1,0 +1,25 @@
+{
+    "name": "Nonstop Knight",
+    "short_name": "Nonstop Knight",
+    "description": "Cross-platform mobile game experience",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#1a1a1a",
+    "theme_color": "#1a1a1a",
+    "orientation": "portrait",
+    "scope": "/",
+    "icons": [
+      {
+        "src": "nonstopphoto2.png",
+        "sizes": "512x512",
+        "type": "image/png",
+        "purpose": "maskable"
+      },
+      {
+        "src": "nonstopphoto1.jpg",
+        "sizes": "192x192",
+        "type": "image/jpeg",
+        "purpose": "any"
+      }
+    ]
+  }
